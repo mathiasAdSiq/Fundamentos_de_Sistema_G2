@@ -25,12 +25,30 @@ eventos especiais (feriados, jogos, etc).
 ### 1. Instalar dependências
 
 ```bash
-pip install flask
+pip install flask flask-login
 ```
 
-(Só o Flask é necessário; o banco de dados usa SQLite, que já vem com o Python.)
+(O banco de dados usa SQLite, que já vem com o Python — não precisa instalar nada além disso.)
 
-### 2. Executar
+### 2. Criar o primeiro usuário
+
+Antes de usar o sistema pela primeira vez, você precisa criar um usuário de
+acesso. Rode no terminal:
+
+```bash
+python3 gerenciar_usuarios.py
+```
+
+(No Windows, use `py gerenciar_usuarios.py`)
+
+Escolha a opção **1 - Criar novo usuário** e preencha nome, login e senha.
+
+Esse mesmo script serve para o dia a dia: adicionar funcionários, resetar
+senha de quem esqueceu, listar usuários cadastrados, ou desativar o acesso
+de alguém que saiu — tudo pelo terminal, sem precisar editar o banco de
+dados manualmente.
+
+### 3. Executar o site
 
 ```bash
 python3 app.py
@@ -42,10 +60,27 @@ O terminal vai mostrar algo como:
 Running on http://127.0.0.1:5000
 ```
 
-Abra esse endereço no navegador.
+Abra esse endereço no navegador e faça login com o usuário que você criou.
 
 > O banco de dados (`instance/estoque.db`) é criado automaticamente na
 > primeira execução, já vazio e pronto para você cadastrar seus produtos.
+
+## Login e usuários
+
+O sistema agora exige login para qualquer acesso — ninguém entra sem
+usuário e senha cadastrados.
+
+- **Múltiplos usuários**: você pode criar um login para cada funcionário
+  que for usar o sistema (ex: caixa, gerente, etc), todos com acesso
+  independente.
+- **Esqueceu a senha?** Rode `python3 gerenciar_usuarios.py` (ou
+  `py gerenciar_usuarios.py` no Windows), escolha a opção **2 - Resetar
+  senha** e defina uma nova.
+- **Funcionário saiu do restaurante?** Use a opção **4 - Ativar/desativar
+  usuário** no mesmo script para bloquear o acesso dele sem precisar
+  excluir o histórico de quem ele é.
+- As senhas são armazenadas com hash seguro (nunca em texto puro) no banco
+  de dados.
 
 ## Como usar no dia a dia
 

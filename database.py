@@ -50,6 +50,15 @@ def init_db():
                 fator_multiplicador REAL NOT NULL DEFAULT 1.5
             );
 
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL,
+                login TEXT NOT NULL UNIQUE,
+                senha_hash TEXT NOT NULL,
+                ativo INTEGER NOT NULL DEFAULT 1,
+                criado_em TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            );
+
             CREATE INDEX IF NOT EXISTS idx_mov_produto ON movimentacoes(produto_id);
             CREATE INDEX IF NOT EXISTS idx_mov_data ON movimentacoes(data);
             """

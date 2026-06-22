@@ -1,15 +1,82 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
+from flask_login import (
+    LoginManager,
+    login_user,
+    logout_user,
+    login_required,
+    current_user,
+)
 from datetime import date, datetime
 import os
+import secrets
 
 from database import get_db, init_db
 import previsao
+import auth
 
 app = Flask(__name__)
-app.secret_key = "troque-essa-chave-em-producao"
 
+# Chave de sessão: gerada uma vez e salva em arquivo, para não mudar a cada
+# reinício (o que desconectaria todo mundo) e sem deixar fixa no código.
+SECRET_KEY_PATH = "instance/secret_key.txt"
 os.makedirs("instance", exist_ok=True)
+if not os.path.exists(SECRET_KEY_PATH):
+    with open(SECRET_KEY_PATH, "w") as f:
+        f.write(secrets.token_hex(32))
+with open(SECRET_KEY_PATH) as f:
+    app.secret_key = f.read().strip()
+
 init_db()
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "login"
+login_manager.login_message = "Faça login para acessar o sistema."
+login_manager.login_message_category = "erro"
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return auth.buscar_usuario_por_id(user_id)
+
+
+# ---------- AUTENTICAÇÃO ----------
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for("dashboard"))
+
+    if not auth.existe_algum_usuario():
+        flash(
+            "Nenhum usuário cadastrado ainda. Rode 'py gerenciar_usuarios.py' "
+            "no terminal para criar o primeiro usuário.",
+            "erro",
+        )
+
+    if request.method == "POST":
+        login_str = request.form.get("login", "").strip().lower()
+        senha = request.form.get("senha", "")
+
+        usuario = auth.buscar_usuario_por_login(login_str)
+
+        if usuario and usuario.ativo and auth.verificar_senha(usuario, senha):
+            login_user(usuario)
+            proxima = request.args.get("next")
+            return redirect(proxima or url_for("dashboard"))
+
+        flash("Login ou senha incorretos.", "erro")
+        return redirect(url_for("login"))
+
+    return render_template("login.html")
+
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    flash("Você saiu do sistema.", "sucesso")
+    return redirect(url_for("login"))
 
 
 # ---------- helpers ----------
@@ -25,6 +92,7 @@ def listar_categorias():
 # ---------- DASHBOARD ----------
 
 @app.route("/")
+@login_required
 def dashboard():
     with get_db() as conn:
         produtos = conn.execute(
@@ -61,6 +129,7 @@ def dashboard():
 # ---------- PRODUTOS ----------
 
 @app.route("/produtos")
+@login_required
 def listar_produtos():
     with get_db() as conn:
         produtos = conn.execute(
@@ -70,6 +139,7 @@ def listar_produtos():
 
 
 @app.route("/produtos/novo", methods=["GET", "POST"])
+@login_required
 def novo_produto():
     if request.method == "POST":
         nome = request.form["nome"].strip()
@@ -97,6 +167,7 @@ def novo_produto():
 
 
 @app.route("/produtos/<int:produto_id>/editar", methods=["GET", "POST"])
+@login_required
 def editar_produto(produto_id):
     with get_db() as conn:
         produto = conn.execute(
@@ -128,6 +199,7 @@ def editar_produto(produto_id):
 
 
 @app.route("/produtos/<int:produto_id>/excluir", methods=["POST"])
+@login_required
 def excluir_produto(produto_id):
     with get_db() as conn:
         conn.execute("DELETE FROM produtos WHERE id = ?", (produto_id,))
@@ -138,6 +210,7 @@ def excluir_produto(produto_id):
 # ---------- MOVIMENTAÇÕES ----------
 
 @app.route("/movimentacoes")
+@login_required
 def listar_movimentacoes():
     with get_db() as conn:
         movs = conn.execute(
@@ -151,6 +224,7 @@ def listar_movimentacoes():
 
 
 @app.route("/movimentacoes/nova", methods=["GET", "POST"])
+@login_required
 def nova_movimentacao():
     with get_db() as conn:
         produtos = conn.execute(
@@ -204,6 +278,7 @@ def nova_movimentacao():
 # ---------- DIAS ESPECIAIS (feriados / eventos) ----------
 
 @app.route("/dias-especiais")
+@login_required
 def listar_dias_especiais():
     with get_db() as conn:
         dias = conn.execute(
@@ -213,6 +288,7 @@ def listar_dias_especiais():
 
 
 @app.route("/dias-especiais/novo", methods=["POST"])
+@login_required
 def novo_dia_especial():
     data_str = request.form["data"]
     descricao = request.form["descricao"].strip()
@@ -236,6 +312,7 @@ def novo_dia_especial():
 
 
 @app.route("/dias-especiais/<int:dia_id>/excluir", methods=["POST"])
+@login_required
 def excluir_dia_especial(dia_id):
     with get_db() as conn:
         conn.execute("DELETE FROM dias_especiais WHERE id = ?", (dia_id,))
@@ -246,6 +323,7 @@ def excluir_dia_especial(dia_id):
 # ---------- PREVISÃO ----------
 
 @app.route("/previsao")
+@login_required
 def previsao_geral():
     with get_db() as conn:
         produtos = conn.execute(
@@ -263,6 +341,7 @@ def previsao_geral():
 
 
 @app.route("/previsao/<int:produto_id>")
+@login_required
 def previsao_produto(produto_id):
     with get_db() as conn:
         produto = conn.execute(
