@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Estoque de Bebidas{% endblock %}
+
+{% block content %}
+<h1>Dashboard</h1>
+<p class="subtitle">Visão geral do estoque do seu restaurante.</p>
+
+<div class="cards-grid">
+    <div class="stat-card">
+        <div class="label">Produtos ativos</div>
+        <div class="value">{{ total_itens }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Valor em estoque</div>
+        <div class="value">R$ {{ "%.2f"|format(valor_total_estoque) }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Produtos em alerta</div>
+        <div class="value {{ 'alert' if alertas else 'ok' }}">{{ alertas|length }}</div>
+    </div>
+</div>
+
+{% if alertas %}
+<div class="panel">
+    <h2>⚠️ Produtos com estoque baixo</h2>
+    <table>
+        <thead>
+            <tr><th>Produto</th><th>Estoque atual</th><th>Estoque mínimo</th><th></th></tr>
+        </thead>
+        <tbody>
+            {% for p in alertas %}
+            <tr>
+                <td>{{ p.nome }}</td>
+                <td><span class="badge badge-red">{{ p.estoque_atual }} {{ p.unidade }}</span></td>
+                <td>{{ p.estoque_minimo }} {{ p.unidade }}</td>
+                <td><a href="{{ url_for('previsao_produto', produto_id=p.id) }}" class="link-discreet">Ver previsão →</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if proximos_especiais %}
+<div class="panel">
+    <h2>📅 Próximos feriados/eventos cadastrados</h2>
+    <table>
+        <thead><tr><th>Data</th><th>Descrição</th><th>Fator de aumento</th></tr></thead>
+        <tbody>
+            {% for d in proximos_especiais %}
+            <tr>
+                <td>{{ d.data }}</td>
+                <td>{{ d.descricao }}</td>
+                <td><span class="badge badge-yellow">x{{ d.fator_multiplicador }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div class="panel">
+    <div class="section-title-row">
+        <h2>Estoque atual</h2>
+        <a href="{{ url_for('listar_produtos') }}" class="link-discreet">Ver todos →</a>
+    </div>
+    {% if produtos %}
+    <table>
+        <thead>
+            <tr><th>Produto</th><th>Categoria</th><th>Estoque</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            {% for p in produtos[:8] %}
+            <tr>
+                <td>{{ p.nome }}</td>
+                <td>{{ p.categoria }}</td>
+                <td>{{ p.estoque_atual }} {{ p.unidade }}</td>
+                <td>
+                    {% if p.estoque_atual <= p.estoque_minimo %}
+                        <span class="badge badge-red">Baixo</span>
+                    {% elif p.estoque_atual <= p.estoque_minimo * 1.5 %}
+                        <span class="badge badge-yellow">Atenção</span>
+                    {% else %}
+                        <span class="badge badge-green">Ok</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        Nenhum produto cadastrado ainda. <a href="{{ url_for('novo_produto') }}" class="link-discreet">Cadastre o primeiro →</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

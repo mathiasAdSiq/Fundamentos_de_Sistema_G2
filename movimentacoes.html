@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Previsão - {{ produto.nome }}{% endblock %}
+
+{% block content %}
+<h1>{{ produto.nome }}</h1>
+<p class="subtitle">Análise de consumo e previsão de reposição.</p>
+
+<div class="cards-grid">
+    <div class="stat-card">
+        <div class="label">Estoque atual</div>
+        <div class="value">{{ produto.estoque_atual }} {{ produto.unidade }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Estoque mínimo</div>
+        <div class="value">{{ produto.estoque_minimo }} {{ produto.unidade }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Consumo previsto (7 dias)</div>
+        <div class="value">{{ rec.consumo_previsto_total }} {{ produto.unidade }}</div>
+    </div>
+</div>
+
+<div class="panel">
+    <h2>Recomendação</h2>
+    {% if rec.precisa_comprar %}
+    <div class="recommendation-box buy">
+        <strong>⚠️ Repor estoque.</strong> Com base no consumo previsto para os próximos 7 dias,
+        o estoque projetado ficaria em <strong>{{ rec.estoque_projetado_final }} {{ produto.unidade }}</strong>,
+        abaixo do mínimo de {{ produto.estoque_minimo }} {{ produto.unidade }}.
+        <br>Sugestão de compra: <strong>{{ rec.quantidade_sugerida }} {{ produto.unidade }}</strong>.
+    </div>
+    {% else %}
+    <div class="recommendation-box ok">
+        <strong>✅ Estoque suficiente.</strong> O estoque projetado para os próximos 7 dias é de
+        <strong>{{ rec.estoque_projetado_final }} {{ produto.unidade }}</strong>, dentro do esperado.
+    </div>
+    {% endif %}
+</div>
+
+<div class="panel">
+    <h2>Média de consumo por dia da semana</h2>
+    <p class="subtitle" style="margin-bottom:8px;">Baseado no histórico de saídas registradas.</p>
+    <div class="mini-table-week">
+        {% for m in medias %}
+        <div class="day-box">
+            <div class="day-name">{{ m.dia[:3] }}</div>
+            <div class="day-value">{{ m.media }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="panel">
+    <h2>Detalhamento dos próximos 7 dias</h2>
+    <table>
+        <thead>
+            <tr><th>Data</th><th>Dia da semana</th><th>Média histórica</th><th>Evento especial</th><th>Previsão final</th></tr>
+        </thead>
+        <tbody>
+            {% for d in rec.detalhe_dias %}
+            <tr>
+                <td>{{ d.data }}</td>
+                <td>{{ d.dia_semana }}</td>
+                <td>{{ d.media_base }} {{ produto.unidade }}</td>
+                <td>
+                    {% if d.descricao_especial %}
+                        <span class="badge badge-yellow">{{ d.descricao_especial }} (x{{ d.fator_aplicado }})</span>
+                    {% else %}
+                        <span class="badge badge-gray">—</span>
+                    {% endif %}
+                </td>
+                <td><strong>{{ d.previsao }} {{ produto.unidade }}</strong></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<a href="{{ url_for('previsao_geral') }}" class="link-discreet">← Voltar para previsão geral</a>
+{% endblock %}

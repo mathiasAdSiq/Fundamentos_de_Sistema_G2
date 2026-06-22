@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Produtos{% endblock %}
+
+{% block content %}
+<div class="actions-bar">
+    <div>
+        <h1>Produtos</h1>
+        <p class="subtitle">Cadastro de bebidas do estoque.</p>
+    </div>
+    <a href="{{ url_for('novo_produto') }}" class="btn">+ Novo produto</a>
+</div>
+
+<div class="panel">
+    {% if produtos %}
+    <table>
+        <thead>
+            <tr>
+                <th>Nome</th><th>Categoria</th><th>Estoque</th><th>Mínimo</th>
+                <th>Custo unit.</th><th>Status</th><th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in produtos %}
+            <tr>
+                <td>{{ p.nome }}</td>
+                <td>{{ p.categoria }}</td>
+                <td>{{ p.estoque_atual }} {{ p.unidade }}</td>
+                <td>{{ p.estoque_minimo }} {{ p.unidade }}</td>
+                <td>R$ {{ "%.2f"|format(p.preco_custo) }}</td>
+                <td>
+                    {% if not p.ativo %}
+                        <span class="badge badge-gray">Inativo</span>
+                    {% elif p.estoque_atual <= p.estoque_minimo %}
+                        <span class="badge badge-red">Baixo</span>
+                    {% else %}
+                        <span class="badge badge-green">Ok</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{{ url_for('editar_produto', produto_id=p.id) }}" class="link-discreet">Editar</a>
+                    &nbsp;·&nbsp;
+                    <a href="{{ url_for('previsao_produto', produto_id=p.id) }}" class="link-discreet">Previsão</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">Nenhum produto cadastrado ainda.</div>
+    {% endif %}
+</div>
+{% endblock %}

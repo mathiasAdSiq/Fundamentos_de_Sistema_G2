@@ -1,138 +1,140 @@
-# Controle de Estoque de Bebidas
+"""
+Script de gerenciamento de usuários — rode pelo terminal.
 
-Sistema web em Python (Flask + SQLite) para controle de estoque de bebidas de
-restaurante, com previsão de demanda baseada em histórico de consumo e
-eventos especiais (feriados, jogos, etc).
+Uso:
+    py gerenciar_usuarios.py
 
-## Funcionalidades
+Use este script para:
+- Criar o primeiro usuário (obrigatório antes de usar o sistema)
+- Adicionar novos usuários (funcionários)
+- Resetar a senha de alguém que esqueceu
+- Desativar um usuário (ex: funcionário que saiu)
+"""
 
-- **Cadastro de produtos**: nome, categoria, unidade, estoque mínimo, preço de custo.
-- **Entrada e saída de itens**: registro de movimentações com data e motivo,
-  atualizando o estoque automaticamente. O sistema bloqueia saídas maiores
-  que o estoque disponível.
-- **Dashboard**: visão geral do estoque, valor total, alertas de produtos
-  com estoque baixo.
-- **Feriados/Eventos especiais**: cadastre datas com movimento diferenciado
-  (ex: Réveillon, jogo de futebol, festa junina) e um "fator multiplicador"
-  de consumo esperado para aquele dia.
-- **Previsão de estoque**: calcula a média histórica de consumo de cada
-  produto **por dia da semana** (ex: sábado costuma vender mais que terça) e
-  combina com o fator dos dias especiais cadastrados para prever a demanda
-  dos próximos 7 dias e recomendar se — e quanto — você precisa comprar.
+import getpass
+import sys
 
-## Como rodar
+from database import init_db, get_db
+import auth
 
-### 1. Instalar dependências
 
-```bash
-pip install flask flask-login
-```
+def criar_usuario_interativo():
+    print("\n--- Criar novo usuário ---")
+    nome = input("Nome completo: ").strip()
+    login = input("Login (sem espaços, ex: mathias): ").strip().lower()
 
-(O banco de dados usa SQLite, que já vem com o Python — não precisa instalar nada além disso.)
+    if not nome or not login:
+        print("Nome e login são obrigatórios.")
+        return
 
-### 2. Criar o primeiro usuário
+    if auth.buscar_usuario_por_login(login):
+        print(f'Já existe um usuário com o login "{login}".')
+        return
 
-Antes de usar o sistema pela primeira vez, você precisa criar um usuário de
-acesso. Rode no terminal:
+    senha = getpass.getpass("Senha: ")
+    senha_confirma = getpass.getpass("Confirme a senha: ")
 
-```bash
-python3 gerenciar_usuarios.py
-```
+    if senha != senha_confirma:
+        print("As senhas não coincidem. Operação cancelada.")
+        return
 
-(No Windows, use `py gerenciar_usuarios.py`)
+    if len(senha) < 4:
+        print("Use uma senha com pelo menos 4 caracteres.")
+        return
 
-Escolha a opção **1 - Criar novo usuário** e preencha nome, login e senha.
+    auth.criar_usuario(nome, login, senha)
+    print(f'Usuário "{login}" criado com sucesso.')
 
-Esse mesmo script serve para o dia a dia: adicionar funcionários, resetar
-senha de quem esqueceu, listar usuários cadastrados, ou desativar o acesso
-de alguém que saiu — tudo pelo terminal, sem precisar editar o banco de
-dados manualmente.
 
-### 3. Executar o site
+def resetar_senha_interativo():
+    print("\n--- Resetar senha de usuário ---")
+    login = input("Login do usuário: ").strip().lower()
+    usuario = auth.buscar_usuario_por_login(login)
 
-```bash
-python3 app.py
-```
+    if not usuario:
+        print(f'Nenhum usuário encontrado com o login "{login}".')
+        return
 
-O terminal vai mostrar algo como:
+    senha = getpass.getpass(f"Nova senha para {usuario.nome}: ")
+    senha_confirma = getpass.getpass("Confirme a nova senha: ")
 
-```
-Running on http://127.0.0.1:5000
-```
+    if senha != senha_confirma:
+        print("As senhas não coincidem. Operação cancelada.")
+        return
 
-Abra esse endereço no navegador e faça login com o usuário que você criou.
+    if len(senha) < 4:
+        print("Use uma senha com pelo menos 4 caracteres.")
+        return
 
-> O banco de dados (`instance/estoque.db`) é criado automaticamente na
-> primeira execução, já vazio e pronto para você cadastrar seus produtos.
+    from werkzeug.security import generate_password_hash
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE usuarios SET senha_hash = ? WHERE id = ?",
+            (generate_password_hash(senha), usuario.id),
+        )
+    print(f'Senha de "{login}" atualizada com sucesso.')
 
-## Login e usuários
 
-O sistema agora exige login para qualquer acesso — ninguém entra sem
-usuário e senha cadastrados.
+def listar_usuarios():
+    print("\n--- Usuários cadastrados ---")
+    with get_db() as conn:
+        usuarios = conn.execute(
+            "SELECT id, nome, login, ativo FROM usuarios ORDER BY nome"
+        ).fetchall()
 
-- **Múltiplos usuários**: você pode criar um login para cada funcionário
-  que for usar o sistema (ex: caixa, gerente, etc), todos com acesso
-  independente.
-- **Esqueceu a senha?** Rode `python3 gerenciar_usuarios.py` (ou
-  `py gerenciar_usuarios.py` no Windows), escolha a opção **2 - Resetar
-  senha** e defina uma nova.
-- **Funcionário saiu do restaurante?** Use a opção **4 - Ativar/desativar
-  usuário** no mesmo script para bloquear o acesso dele sem precisar
-  excluir o histórico de quem ele é.
-- As senhas são armazenadas com hash seguro (nunca em texto puro) no banco
-  de dados.
+    if not usuarios:
+        print("Nenhum usuário cadastrado ainda.")
+        return
 
-## Como usar no dia a dia
+    for u in usuarios:
+        status = "ativo" if u["ativo"] else "INATIVO"
+        print(f'  [{u["id"]}] {u["nome"]} (login: {u["login"]}) - {status}')
 
-1. **Cadastre seus produtos** em "Produtos → Novo produto" (ex: Cerveja
-   Heineken 600ml, Coca-Cola 2L, Caipirinha pronta, etc), definindo o
-   estoque mínimo que dispara o alerta de reposição.
-2. **Registre as movimentações** todo dia (ou ao final do expediente):
-   - **Entrada**: quando chega mercadoria do fornecedor.
-   - **Saída**: quando o produto é consumido/vendido. É esse histórico de
-     saídas que alimenta a previsão.
-3. **Cadastre feriados e eventos** com antecedência em "Feriados/Eventos"
-   (ex: data de um jogo importante, véspera de feriado, festa local),
-   definindo o fator de aumento esperado (1.5 = 50% mais, 2.0 = dobro, etc).
-   Você pode ajustar esse fator com base na experiência de anos anteriores.
-4. **Consulte "Previsão"** para ver, produto por produto, se o estoque atual
-   é suficiente para os próximos 7 dias ou se é hora de fazer pedido ao
-   fornecedor — já considerando os dias especiais cadastrados.
 
-## Como funciona a previsão (resumo técnico)
+def alternar_ativo_interativo():
+    print("\n--- Ativar / desativar usuário ---")
+    login = input("Login do usuário: ").strip().lower()
+    usuario = auth.buscar_usuario_por_login(login)
 
-Para cada produto, o sistema:
+    if not usuario:
+        print(f'Nenhum usuário encontrado com o login "{login}".')
+        return
 
-1. Olha o histórico de saídas dos últimos 90 dias.
-2. Agrupa por dia da semana (segunda, terça, ..., domingo) e calcula a
-   média de consumo de cada um.
-3. Para cada um dos próximos 7 dias, verifica se existe um "dia especial"
-   cadastrado naquela data. Se existir, multiplica a média do dia da semana
-   pelo fator cadastrado (ex: sábado normal x2.0 por causa de um jogo).
-4. Soma a previsão dos 7 dias e compara com o estoque atual menos o estoque
-   mínimo de segurança, recomendando a quantidade de compra se necessário.
+    novo_status = 0 if usuario.ativo else 1
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE usuarios SET ativo = ? WHERE id = ?", (novo_status, usuario.id)
+        )
 
-Quanto mais movimentações de saída você registrar (idealmente diárias), mais
-precisa fica a previsão — o sistema usa dados reais do seu próprio
-restaurante, não estimativas genéricas.
+    print(f'Usuário "{login}" agora está {"ativo" if novo_status else "INATIVO"}.')
 
-## Estrutura do projeto
 
-```
-estoque_bebidas/
-├── app.py              # Aplicação Flask (rotas)
-├── database.py         # Conexão e criação das tabelas (SQLite)
-├── previsao.py          # Lógica de cálculo de médias e previsão de demanda
-├── instance/
-│   └── estoque.db       # Banco de dados (criado automaticamente)
-├── templates/           # Páginas HTML (Jinja2)
-└── static/
-    └── style.css         # Estilo visual
-```
+def menu():
+    init_db()
+    while True:
+        print("\n=== Gerenciamento de Usuários - Estoque de Bebidas ===")
+        print("1. Criar novo usuário")
+        print("2. Resetar senha de um usuário")
+        print("3. Listar usuários")
+        print("4. Ativar/desativar usuário")
+        print("0. Sair")
 
-## Próximos passos sugeridos (opcional)
+        escolha = input("\nEscolha uma opção: ").strip()
 
-- Adicionar autenticação (login) se mais pessoas forem usar o sistema.
-- Exportar relatórios em PDF/Excel.
-- Adicionar gráfico de consumo histórico (linha do tempo).
-- Integrar com leitor de código de barras para agilizar o registro de saída.
+        if escolha == "1":
+            criar_usuario_interativo()
+        elif escolha == "2":
+            resetar_senha_interativo()
+        elif escolha == "3":
+            listar_usuarios()
+        elif escolha == "4":
+            alternar_ativo_interativo()
+        elif escolha == "0":
+            print("Até mais!")
+            sys.exit(0)
+        else:
+            print("Opção inválida.")
+
+
+if __name__ == "__main__":
+    menu()

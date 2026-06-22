@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Previsão de Estoque{% endblock %}
+
+{% block content %}
+<h1>Previsão de estoque (próximos 7 dias)</h1>
+<p class="subtitle">
+    Baseado na média de consumo histórica por dia da semana, combinada com feriados/eventos cadastrados.
+</p>
+
+<div class="panel">
+    {% if resultados %}
+    <table>
+        <thead>
+            <tr>
+                <th>Produto</th>
+                <th>Estoque atual</th>
+                <th>Consumo previsto (7 dias)</th>
+                <th>Estoque projetado</th>
+                <th>Recomendação</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in resultados %}
+            <tr>
+                <td>{{ r.produto.nome }}</td>
+                <td>{{ r.produto.estoque_atual }} {{ r.produto.unidade }}</td>
+                <td>{{ r.recomendacao.consumo_previsto_total }} {{ r.produto.unidade }}</td>
+                <td>
+                    {% if r.recomendacao.estoque_projetado_final < 0 %}
+                        <span class="badge badge-red">{{ r.recomendacao.estoque_projetado_final }} {{ r.produto.unidade }}</span>
+                    {% else %}
+                        {{ r.recomendacao.estoque_projetado_final }} {{ r.produto.unidade }}
+                    {% endif %}
+                </td>
+                <td>
+                    {% if r.recomendacao.precisa_comprar %}
+                        <span class="badge badge-red">Comprar {{ r.recomendacao.quantidade_sugerida }} {{ r.produto.unidade }}</span>
+                    {% else %}
+                        <span class="badge badge-green">Estoque suficiente</span>
+                    {% endif %}
+                </td>
+                <td><a href="{{ url_for('previsao_produto', produto_id=r.produto.id) }}" class="link-discreet">Detalhes →</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">Cadastre produtos e registre movimentações para ver previsões aqui.</div>
+    {% endif %}
+</div>
+{% endblock %}

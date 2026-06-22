@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Movimentações{% endblock %}
+
+{% block content %}
+<div class="actions-bar">
+    <div>
+        <h1>Movimentações</h1>
+        <p class="subtitle">Histórico de entradas e saídas de estoque (últimos 200 registros).</p>
+    </div>
+    <a href="{{ url_for('nova_movimentacao') }}" class="btn">+ Nova movimentação</a>
+</div>
+
+<div class="panel">
+    {% if movimentacoes %}
+    <table>
+        <thead>
+            <tr><th>Data</th><th>Produto</th><th>Tipo</th><th>Quantidade</th><th>Motivo</th></tr>
+        </thead>
+        <tbody>
+            {% for m in movimentacoes %}
+            <tr>
+                <td>{{ m.data }}</td>
+                <td>{{ m.produto_nome }}</td>
+                <td>
+                    {% if m.tipo == 'entrada' %}
+                        <span class="tag-tipo-entrada">↑ Entrada</span>
+                    {% else %}
+                        <span class="tag-tipo-saida">↓ Saída</span>
+                    {% endif %}
+                </td>
+                <td>{{ m.quantidade }} {{ m.produto_unidade }}</td>
+                <td>{{ m.motivo or '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">Nenhuma movimentação registrada ainda.</div>
+    {% endif %}
+</div>
+{% endblock %}
